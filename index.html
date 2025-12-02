@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LLM Чат-клиент</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+      }
+
+      body {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: #e6e6e6;
+        min-height: 100vh;
+        padding: 20px;
+        line-height: 1.5;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 40px);
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #2d3748;
+      }
+
+      h1 {
+        font-size: 2.2rem;
+        margin-bottom: 8px;
+        background: linear-gradient(90deg, #6ee7b7, #3b82f6);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .subtitle {
+        color: #a0aec0;
+        font-size: 1rem;
+      }
+
+      .main-content {
+        display: flex;
+        flex: 1;
+        gap: 20px;
+        overflow: hidden;
+      }
+
+      @media (max-width: 768px) {
+        .main-content {
+          flex-direction: column;
+        }
+      }
+
+      .settings-panel {
+        flex: 0 0 320px;
+        background: rgba(26, 32, 44, 0.8);
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid #2d3748;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .chat-container {
+        flex: 1;
+        background: rgba(26, 32, 44, 0.8);
+        border-radius: 12px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #2d3748;
+        overflow: hidden;
+      }
+
+      .settings-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      label {
+        font-weight: 600;
+        color: #cbd5e0;
+        font-size: 0.9rem;
+      }
+
+      input,
+      textarea,
+      select {
+        background: #2d3748;
+        border: 1px solid #4a5568;
+        border-radius: 8px;
+        padding: 10px 12px;
+        color: #e6e6e6;
+        font-size: 0.95rem;
+        transition: border-color 0.2s;
+      }
+
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: none;
+        border-color: #4299e1;
+        box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+      }
+
+      .api-key-container {
+        position: relative;
+      }
+
+      .toggle-visibility {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #a0aec0;
+        cursor: pointer;
+        font-size: 0.9rem;
+      }
+
+      button {
+        background: linear-gradient(90deg, #3182ce, #2b6cb0);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 20px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.95rem;
+      }
+
+      button:hover {
+        background: linear-gradient(90deg, #2b6cb0, #2c5282);
+        transform: translateY(-1px);
+      }
+
+      button:active {
+        transform: translateY(0);
+      }
+
+      button:disabled {
+        background: #4a5568;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .secondary-button {
+        background: #4a5568;
+      }
+
+      .secondary-button:hover {
+        background: #2d3748;
+      }
+
+      .messages-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+        margin-bottom: 20px;
+        background: rgba(45, 55, 72, 0.5);
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .message {
+        max-width: 85%;
+        padding: 12px 16px;
+        border-radius: 18px;
+        line-height: 1.5;
+        word-wrap: break-word;
+        position: relative;
+      }
+
+      .user-message {
+        align-self: flex-end;
+        background: linear-gradient(135deg, #3182ce, #2b6cb0);
+        color: white;
+        border-bottom-right-radius: 4px;
+      }
+
+      .assistant-message {
+        align-self: flex-start;
+        background: #2d3748;
+        color: #e6e6e6;
+        border-bottom-left-radius: 4px;
+      }
+
+      .message-header {
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .input-area {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+      }
+
+      #messageInput {
+        flex: 1;
+        min-height: 50px;
+        max-height: 150px;
+        resize: vertical;
+      }
+
+      #sendButton {
+        height: 50px;
+        min-width: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+        color: #a0aec0;
+        padding: 8px 12px;
+        background: rgba(45, 55, 72, 0.7);
+        border-radius: 8px;
+        margin-top: 10px;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #48bb78;
+      }
+
+      .dot.disconnected {
+        background: #f56565;
+      }
+
+      .dot.connecting {
+        background: #ed8936;
+        animation: pulse 1.5s infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .system-message {
+        background: rgba(237, 137, 54, 0.1);
+        border: 1px solid rgba(237, 137, 54, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 0.9rem;
+        margin-bottom: 10px;
+      }
+
+      .error-message {
+        background: rgba(245, 101, 101, 0.1);
+        border: 1px solid rgba(245, 101, 101, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 0.9rem;
+        margin-bottom: 10px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .loading {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .message-time {
+        font-size: 0.75rem;
+        opacity: 0.7;
+      }
+
+      .clear-button {
+        background: #4a5568;
+        margin-top: 10px;
+      }
+
+      .clear-button:hover {
+        background: #2d3748;
+      }
+
+      footer {
+        text-align: center;
+        margin-top: 20px;
+        color: #a0aec0;
+        font-size: 0.9rem;
+        padding-top: 15px;
+        border-top: 1px solid #2d3748;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>LLM Чат-клиент</h1>
+        <p class="subtitle">
+          Подключитесь к любой LLM API с настраиваемыми параметрами
+        </p>
+      </header>
+
+      <div class="main-content">
+        <div class="settings-panel">
+          <h2>Настройки подключения</h2>
+
+          <div class="settings-group">
+            <label for="apiUrl">URL API эндпоинта:</label>
+            <input
+              type="text"
+              id="apiUrl"
+              placeholder="https://api.openai.com/v1/chat/completions"
+              value="https://api.openai.com/v1/chat/completions"
+            />
+          </div>
+
+          <div class="settings-group">
+            <label for="apiKey">API ключ:</label>
+            <div class="api-key-container">
+              <input
+                type="password"
+                id="apiKey"
+                placeholder="Введите ваш API ключ"
+              />
+              <button type="button" class="toggle-visibility" id="toggleApiKey">
+                Показать
+              </button>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <label for="model">Модель:</label>
+            <input
+              type="text"
+              id="model"
+              placeholder="gpt-3.5-turbo"
+              value="gpt-3.5-turbo"
+            />
+          </div>
+
+          <div class="settings-group">
+            <label for="temperature">Температура (0-2):</label>
+            <input type="range" id="temperature" min="0" max="20" value="10" />
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                font-size: 0.8rem;
+              "
+            >
+              <span>0 (детерминированная)</span>
+              <span id="temperatureValue">1.0</span>
+              <span>2 (креативная)</span>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <label for="maxTokens">Макс. токенов:</label>
+            <input
+              type="number"
+              id="maxTokens"
+              min="1"
+              max="4096"
+              value="1000"
+            />
+          </div>
+
+          <button id="testConnection">Проверить подключение</button>
+
+          <div class="status-indicator">
+            <div class="dot disconnected" id="statusDot"></div>
+            <span id="statusText">Не подключено</span>
+          </div>
+
+          <div class="system-message hidden" id="systemMessage">
+            <strong>Системное сообщение:</strong>
+            <span id="systemMessageText"></span>
+          </div>
+
+          <div class="error-message hidden" id="errorMessage">
+            <strong>Ошибка:</strong> <span id="errorMessageText"></span>
+          </div>
+
+          <button class="clear-button secondary-button" id="clearChat">
+            Очистить чат
+          </button>
+        </div>
+
+        <div class="chat-container">
+          <h2>Чат</h2>
+
+          <div class="messages-container" id="messagesContainer">
+            <div class="message assistant-message">
+              <div class="message-header">
+                <span>Ассистент</span>
+                <span class="message-time" id="welcomeTime"></span>
+              </div>
+              Привет! Я ваш AI-ассистент. Настройте параметры подключения в
+              левой панели, затем начните общение.
+            </div>
+          </div>
+
+          <div class="input-area">
+            <textarea
+              id="messageInput"
+              placeholder="Введите ваше сообщение... Нажмите Enter для отправки, Shift+Enter для новой строки."
+              rows="2"
+            ></textarea>
+            <button id="sendButton">Отправить</button>
+          </div>
+        </div>
+      </div>
+
+      <footer>
+        <p>
+          LLM Чат-клиент | Работает на чистом HTML, CSS и JavaScript |
+          Поддерживает любые LLM API
+        </p>
+      </footer>
+    </div>
+
+    <script>
+      // Элементы DOM
+      const apiUrlInput = document.getElementById("apiUrl");
+      const apiKeyInput = document.getElementById("apiKey");
+      const modelInput = document.getElementById("model");
+      const temperatureInput = document.getElementById("temperature");
+      const temperatureValue = document.getElementById("temperatureValue");
+      const maxTokensInput = document.getElementById("maxTokens");
+      const toggleApiKeyButton = document.getElementById("toggleApiKey");
+      const testConnectionButton = document.getElementById("testConnection");
+      const statusDot = document.getElementById("statusDot");
+      const statusText = document.getElementById("statusText");
+      const systemMessage = document.getElementById("systemMessage");
+      const systemMessageText = document.getElementById("systemMessageText");
+      const errorMessage = document.getElementById("errorMessage");
+      const errorMessageText = document.getElementById("errorMessageText");
+      const messagesContainer = document.getElementById("messagesContainer");
+      const messageInput = document.getElementById("messageInput");
+      const sendButton = document.getElementById("sendButton");
+      const clearChatButton = document.getElementById("clearChat");
+      const welcomeTime = document.getElementById("welcomeTime");
+
+      // Состояние приложения
+      let isConnected = false;
+      let conversationHistory = [];
+
+      // Инициализация
+      function init() {
+        // Установить время приветственного сообщения
+        welcomeTime.textContent = formatTime(new Date());
+
+        // Обработчики событий
+        temperatureInput.addEventListener("input", updateTemperatureValue);
+        toggleApiKeyButton.addEventListener("click", toggleApiKeyVisibility);
+        testConnectionButton.addEventListener("click", testConnection);
+        sendButton.addEventListener("click", sendMessage);
+        clearChatButton.addEventListener("click", clearChat);
+        messageInput.addEventListener("keydown", handleKeyDown);
+
+        // Загрузка сохраненных настроек из localStorage
+        loadSettings();
+
+        // Обновить отображение температуры
+        updateTemperatureValue();
+
+        // Проверить, есть ли сохраненная история чата
+        loadChatHistory();
+      }
+
+      // Обновить отображение значения температуры
+      function updateTemperatureValue() {
+        const value = parseFloat(temperatureInput.value) / 10;
+        temperatureValue.textContent = value.toFixed(1);
+      }
+
+      // Переключить видимость API ключа
+      function toggleApiKeyVisibility() {
+        if (apiKeyInput.type === "password") {
+          apiKeyInput.type = "text";
+          toggleApiKeyButton.textContent = "Скрыть";
+        } else {
+          apiKeyInput.type = "password";
+          toggleApiKeyButton.textContent = "Показать";
+        }
+      }
+
+      // Проверить подключение к API
+      async function testConnection() {
+        const apiUrl = apiUrlInput.value.trim();
+        const apiKey = apiKeyInput.value.trim();
+        const model = modelInput.value.trim();
+
+        if (!apiUrl) {
+          showError("Введите URL API эндпоинта");
+          return;
+        }
+
+        if (!apiKey) {
+          showError("Введите API ключ");
+          return;
+        }
+
+        if (!model) {
+          showError("Введите название модели");
+          return;
+        }
+
+        // Обновить статус на "подключается"
+        updateStatus("connecting", "Подключение...");
+        testConnectionButton.disabled = true;
+        testConnectionButton.innerHTML = '<div class="loading"></div>';
+
+        try {
+          // Простой запрос для проверки подключения
+          const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: model,
+              messages: [{ role: "user", content: "Привет" }],
+              max_tokens: 10,
+              temperature: parseFloat(temperatureInput.value) / 10,
+            }),
+          });
+
+          if (response.ok) {
+            updateStatus("connected", "Подключено");
+            showSystemMessage(`Успешное подключение к модели "${model}"`);
+            isConnected = true;
+
+            // Сохранить настройки
+            saveSettings();
+          } else {
+            const errorData = await response.json();
+            updateStatus("disconnected", "Ошибка подключения");
+            showError(
+              `Ошибка API: ${errorData.error?.message || response.statusText}`
+            );
+          }
+        } catch (error) {
+          updateStatus("disconnected", "Ошибка подключения");
+          showError(`Сетевая ошибка: ${error.message}`);
+        } finally {
+          testConnectionButton.disabled = false;
+          testConnectionButton.textContent = "Проверить подключение";
+        }
+      }
+
+      // Отправить сообщение
+      async function sendMessage() {
+        const message = messageInput.value.trim();
+        if (!message) return;
+
+        if (!isConnected) {
+          showError("Сначала проверьте подключение к API");
+          return;
+        }
+
+        // Добавить сообщение пользователя в чат
+        addMessageToChat("user", message);
+
+        // Очистить поле ввода
+        messageInput.value = "";
+
+        // Добавить сообщение ассистента (пока пустое)
+        const assistantMessageId = addMessageToChat(
+          "assistant",
+          '<div class="loading"></div>',
+          true
+        );
+
+        // Отключить кнопку отправки
+        sendButton.disabled = true;
+        messageInput.disabled = true;
+
+        try {
+          const apiUrl = apiUrlInput.value.trim();
+          const apiKey = apiKeyInput.value.trim();
+          const model = modelInput.value.trim();
+          const temperature = parseFloat(temperatureInput.value) / 10;
+          const maxTokens = parseInt(maxTokensInput.value);
+
+          // Добавить сообщение пользователя в историю
+          conversationHistory.push({ role: "user", content: message });
+
+          // Отправить запрос к API
+          const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: model,
+              messages: conversationHistory,
+              max_tokens: maxTokens,
+              temperature: temperature,
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+
+            // Извлечь ответ ассистента
+            let assistantMessage = "";
+            if (data.choices && data.choices.length > 0) {
+              assistantMessage = data.choices[0].message.content;
+            } else if (data.content) {
+              assistantMessage = data.content;
+            } else {
+              assistantMessage = "Получен неожиданный формат ответа от API";
+            }
+
+            // Добавить ответ ассистента в историю
+            conversationHistory.push({
+              role: "assistant",
+              content: assistantMessage,
+            });
+
+            // Обновить сообщение ассистента в чате
+            updateMessageInChat(assistantMessageId, assistantMessage);
+
+            // Сохранить историю чата
+            saveChatHistory();
+          } else {
+            const errorData = await response.json();
+            updateMessageInChat(
+              assistantMessageId,
+              `Ошибка API: ${errorData.error?.message || response.statusText}`
+            );
+          }
+        } catch (error) {
+          updateMessageInChat(
+            assistantMessageId,
+            `Сетевая ошибка: ${error.message}`
+          );
+        } finally {
+          // Включить кнопку отправки и поле ввода
+          sendButton.disabled = false;
+          messageInput.disabled = false;
+          messageInput.focus();
+        }
+      }
+
+      // Очистить чат
+      function clearChat() {
+        if (confirm("Вы уверены, что хотите очистить историю чата?")) {
+          // Оставить только приветственное сообщение
+          const messages = messagesContainer.querySelectorAll(".message");
+          for (let i = 0; i < messages.length; i++) {
+            if (!messages[i].querySelector("#welcomeTime")) {
+              messages[i].remove();
+            }
+          }
+
+          // Очистить историю разговора
+          conversationHistory = [];
+
+          // Очистить localStorage
+          localStorage.removeItem("llmChatHistory");
+
+          // Добавить системное сообщение
+          showSystemMessage("История чата очищена");
+        }
+      }
+
+      // Обработчик нажатия клавиш в поле ввода
+      function handleKeyDown(event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          sendMessage();
+        }
+      }
+
+      // Добавить сообщение в чат
+      function addMessageToChat(role, content, isTemp = false) {
+        const messageElement = document.createElement("div");
+        const messageId = isTemp ? "temp-" + Date.now() : "";
+
+        messageElement.className = `message ${role}-message`;
+        if (isTemp) messageElement.id = messageId;
+
+        const now = new Date();
+        const timeString = formatTime(now);
+
+        messageElement.innerHTML = `
+                <div class="message-header">
+                    <span>${role === "user" ? "Вы" : "Ассистент"}</span>
+                    <span class="message-time">${timeString}</span>
+                </div>
+                ${content}
+            `;
+
+        messagesContainer.appendChild(messageElement);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        return messageId;
+      }
+
+      // Обновить сообщение в чате
+      function updateMessageInChat(messageId, newContent) {
+        const messageElement = document.getElementById(messageId);
+        if (messageElement) {
+          const contentElement =
+            messageElement.querySelector(".message-content") ||
+            messageElement.lastChild;
+
+          if (messageElement.lastChild.nodeType === Node.TEXT_NODE) {
+            messageElement.lastChild.textContent = newContent;
+          } else {
+            // Если это последний дочерний элемент (после заголовка)
+            const children = messageElement.children;
+            if (children.length > 1) {
+              children[1].innerHTML = newContent;
+            }
+          }
+
+          // Убрать временный ID
+          messageElement.removeAttribute("id");
+        }
+      }
+
+      // Обновить статус подключения
+      function updateStatus(status, text) {
+        statusDot.className = "dot " + status;
+        statusText.textContent = text;
+
+        if (status === "connected") {
+          isConnected = true;
+        } else if (status === "disconnected") {
+          isConnected = false;
+        }
+      }
+
+      // Показать системное сообщение
+      function showSystemMessage(message) {
+        systemMessageText.textContent = message;
+        systemMessage.classList.remove("hidden");
+        errorMessage.classList.add("hidden");
+
+        // Автоматически скрыть через 5 секунд
+        setTimeout(() => {
+          systemMessage.classList.add("hidden");
+        }, 5000);
+      }
+
+      // Показать сообщение об ошибке
+      function showError(message) {
+        errorMessageText.textContent = message;
+        errorMessage.classList.remove("hidden");
+        systemMessage.classList.add("hidden");
+
+        // Автоматически скрыть через 5 секунд
+        setTimeout(() => {
+          errorMessage.classList.add("hidden");
+        }, 5000);
+      }
+
+      // Сохранить настройки в localStorage
+      function saveSettings() {
+        const settings = {
+          apiUrl: apiUrlInput.value.trim(),
+          model: modelInput.value.trim(),
+          temperature: temperatureInput.value,
+          maxTokens: maxTokensInput.value,
+        };
+
+        localStorage.setItem("llmChatSettings", JSON.stringify(settings));
+      }
+
+      // Загрузить настройки из localStorage
+      function loadSettings() {
+        const savedSettings = localStorage.getItem("llmChatSettings");
+        if (savedSettings) {
+          try {
+            const settings = JSON.parse(savedSettings);
+
+            if (settings.apiUrl) apiUrlInput.value = settings.apiUrl;
+            if (settings.model) modelInput.value = settings.model;
+            if (settings.temperature)
+              temperatureInput.value = settings.temperature;
+            if (settings.maxTokens) maxTokensInput.value = settings.maxTokens;
+
+            updateTemperatureValue();
+          } catch (e) {
+            console.error("Ошибка загрузки настроек:", e);
+          }
+        }
+      }
+
+      // Сохранить историю чата
+      function saveChatHistory() {
+        if (conversationHistory.length > 0) {
+          localStorage.setItem(
+            "llmChatHistory",
+            JSON.stringify(conversationHistory)
+          );
+        }
+      }
+
+      // Загрузить историю чата
+      function loadChatHistory() {
+        const savedHistory = localStorage.getItem("llmChatHistory");
+        if (savedHistory) {
+          try {
+            const history = JSON.parse(savedHistory);
+            conversationHistory = history;
+
+            // Восстановить историю в чате (кроме приветственного сообщения)
+            history.forEach((msg) => {
+              if (msg.role === "user" || msg.role === "assistant") {
+                addMessageToChat(msg.role, msg.content);
+              }
+            });
+
+            if (history.length > 0) {
+              showSystemMessage("История чата загружена");
+            }
+          } catch (e) {
+            console.error("Ошибка загрузки истории:", e);
+          }
+        }
+      }
+
+      // Форматировать время
+      function formatTime(date) {
+        return date.toLocaleTimeString("ru-RU", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+      }
+
+      // Инициализировать приложение
+      document.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>
