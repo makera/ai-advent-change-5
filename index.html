@@ -72,6 +72,7 @@
         display: flex;
         flex-direction: column;
         gap: 20px;
+        overflow-y: scroll;
       }
 
       .chat-container {
@@ -147,7 +148,6 @@
 
       button:hover {
         background: linear-gradient(90deg, #2b6cb0, #2c5282);
-        transform: translateY(-1px);
       }
 
       button:active {
@@ -380,6 +380,18 @@
           </div>
 
           <div class="settings-group">
+            <label for="systemPrompt">System Prompt:</label>
+            <textarea
+              id="systemPrompt"
+              placeholder="Укажите системные инструкции для модели (роль, контекст, поведение)"
+              rows="3"
+            ></textarea>
+            <div style="font-size: 0.8rem; color: #a0aec0; margin-top: 4px">
+              Эти инструкции будут отправляться модели в начале каждого запроса
+            </div>
+          </div>
+
+          <div class="settings-group">
             <label for="temperature">Температура (0-2):</label>
             <input type="range" id="temperature" min="0" max="20" value="10" />
             <div
@@ -481,6 +493,7 @@
       const sendButton = document.getElementById("sendButton");
       const clearChatButton = document.getElementById("clearChat");
       const welcomeTime = document.getElementById("welcomeTime");
+      const systemPromptInput = document.getElementById("systemPrompt");
 
       // Состояние приложения
       let isConnected = false;
@@ -531,6 +544,7 @@
         const apiUrl = apiUrlInput.value.trim();
         const apiKey = apiKeyInput.value.trim();
         const model = modelInput.value.trim();
+        const systemPrompt = systemPromptInput.value.trim();
 
         if (!apiUrl) {
           showError("Введите URL API эндпоинта");
@@ -553,6 +567,13 @@
         testConnectionButton.innerHTML = '<div class="loading"></div>';
 
         try {
+          // Создать массив сообщений с учетом system prompt
+          const messages = [];
+          if (systemPrompt) {
+            messages.push({ role: "system", content: systemPrompt });
+          }
+          messages.push({ role: "user", content: "Привет" });
+
           // Простой запрос для проверки подключения
           const response = await fetch(apiUrl, {
             method: "POST",
@@ -562,7 +583,7 @@
             },
             body: JSON.stringify({
               model: model,
-              messages: [{ role: "user", content: "Привет" }],
+              messages: messages,
               max_tokens: 10,
               temperature: parseFloat(temperatureInput.value) / 10,
             }),
@@ -624,9 +645,19 @@
           const model = modelInput.value.trim();
           const temperature = parseFloat(temperatureInput.value) / 10;
           const maxTokens = parseInt(maxTokensInput.value);
+          const systemPrompt = systemPromptInput.value.trim();
 
           // Добавить сообщение пользователя в историю
           conversationHistory.push({ role: "user", content: message });
+
+          const messages = [];
+          if (systemPrompt) {
+            messages.push({ role: "system", content: systemPrompt });
+          }
+          messages.push(...conversationHistory, {
+            role: "user",
+            content: message,
+          });
 
           // Отправить запрос к API
           const response = await fetch(apiUrl, {
@@ -637,7 +668,7 @@
             },
             body: JSON.stringify({
               model: model,
-              messages: conversationHistory,
+              messages: messages,
               max_tokens: maxTokens,
               temperature: temperature,
             }),
@@ -806,6 +837,7 @@
         const settings = {
           apiUrl: apiUrlInput.value.trim(),
           model: modelInput.value.trim(),
+          systemPrompt: systemPromptInput.value.trim(), // Добавить system prompt
           temperature: temperatureInput.value,
           maxTokens: maxTokensInput.value,
         };
@@ -822,6 +854,8 @@
 
             if (settings.apiUrl) apiUrlInput.value = settings.apiUrl;
             if (settings.model) modelInput.value = settings.model;
+            if (settings.systemPrompt)
+              systemPromptInput.value = settings.systemPrompt; // Загрузить system prompt
             if (settings.temperature)
               temperatureInput.value = settings.temperature;
             if (settings.maxTokens) maxTokensInput.value = settings.maxTokens;
