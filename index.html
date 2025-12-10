@@ -189,6 +189,18 @@
         position: relative;
       }
 
+      .message-stats {
+        font-size: 0.8rem;
+        color: #a0aec0;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .message-stats strong {
+        color: #cbd5e0;
+      }
+
       .user-message {
         align-self: flex-end;
         background: linear-gradient(135deg, #3182ce, #2b6cb0);
@@ -512,6 +524,14 @@
             <strong>Ошибка:</strong> <span id="errorMessageText"></span>
           </div>
 
+          <button
+            id="showStats"
+            class="secondary-button"
+            style="margin-top: 10px"
+          >
+            📊 Показать статистику
+          </button>
+
           <button class="clear-button secondary-button" id="clearChat">
             Очистить чат
           </button>
@@ -584,12 +604,16 @@
       const saveCustomPromptButton =
         document.getElementById("saveCustomPrompt");
       const managePromptsButton = document.getElementById("managePrompts");
+      const showStatsButton = document.getElementById("showStats");
 
       // Состояние приложения
       let isConnected = false;
       let conversationHistory = [];
       let promptTemplates = [];
       let currentTemplateId = null;
+      let requestStartTime = null;
+      let totalTokensUsed = 0;
+      let totalRequests = 0;
 
       // Предопределенные шаблоны промптов
       const defaultTemplates = [
@@ -651,6 +675,7 @@
         messageInput.addEventListener("keydown", handleKeyDown);
         saveCustomPromptButton.addEventListener("click", saveCustomPrompt);
         managePromptsButton.addEventListener("click", showPromptManager);
+        showStatsButton.addEventListener("click", showStatistics);
 
         // Загрузка сохраненных настроек из localStorage
         loadSettings();
@@ -773,59 +798,59 @@
       // Показать менеджер промптов
       function showPromptManager() {
         let managerHtml = `
-          <div style="padding: 10px;">
-            <h3 style="margin-bottom: 15px;">Управление шаблонами промптов</h3>
-            <div style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">
-        `;
+              <div style="padding: 10px;">
+                <h3 style="margin-bottom: 15px;">Управление шаблонами промптов</h3>
+                <div style="max-height: 300px; overflow-y: auto; margin-bottom: 15px;">
+            `;
 
         promptTemplates.forEach((template, index) => {
           const isDefault = defaultTemplates.some((t) => t.id === template.id);
           managerHtml += `
-            <div style="padding: 10px; border-bottom: 1px solid #4a5568; margin-bottom: 10px;">
-              <div style="font-weight: bold; margin-bottom: 5px;">
-                ${template.name} ${isDefault ? "🔒" : ""}
-              </div>
-              <div style="font-size: 0.85rem; color: #a0aec0; margin-bottom: 5px;">
-                ${template.description}
-              </div>
-              <div style="font-size: 0.8rem; color: #cbd5e0; background: rgba(45, 55, 72, 0.5); 
-                   padding: 8px; border-radius: 4px; margin-bottom: 8px;">
-                ${template.prompt.substring(0, 100)}${template.prompt.length > 100 ? "..." : ""}
-              </div>
-              ${
-                !isDefault
-                  ? `
-                <div style="display: flex; gap: 10px;">
-                  <button onclick="editPromptTemplate('${template.id}')" 
-                          style="flex: 1; padding: 5px; font-size: 0.8rem;">
-                    Редактировать
-                  </button>
-                  <button onclick="deletePromptTemplate('${template.id}')" 
-                          style="flex: 1; padding: 5px; font-size: 0.8rem; background: #f56565;">
-                    Удалить
-                  </button>
+                <div style="padding: 10px; border-bottom: 1px solid #4a5568; margin-bottom: 10px;">
+                  <div style="font-weight: bold; margin-bottom: 5px;">
+                    ${template.name} ${isDefault ? "🔒" : ""}
+                  </div>
+                  <div style="font-size: 0.85rem; color: #a0aec0; margin-bottom: 5px;">
+                    ${template.description}
+                  </div>
+                  <div style="font-size: 0.8rem; color: #cbd5e0; background: rgba(45, 55, 72, 0.5);
+                       padding: 8px; border-radius: 4px; margin-bottom: 8px;">
+                    ${template.prompt.substring(0, 100)}${template.prompt.length > 100 ? "..." : ""}
+                  </div>
+                  ${
+                    !isDefault
+                      ? `
+                    <div style="display: flex; gap: 10px;">
+                      <button onclick="editPromptTemplate('${template.id}')"
+                              style="flex: 1; padding: 5px; font-size: 0.8rem;">
+                        Редактировать
+                      </button>
+                      <button onclick="deletePromptTemplate('${template.id}')"
+                              style="flex: 1; padding: 5px; font-size: 0.8rem; background: #f56565;">
+                        Удалить
+                      </button>
+                    </div>
+                  `
+                      : ""
+                  }
                 </div>
-              `
-                  : ""
-              }
-            </div>
-          `;
+              `;
         });
 
         managerHtml += `
-            </div>
-            <div style="display: flex; gap: 10px;">
-              <button onclick="resetToDefaultTemplates()" 
-                      style="flex: 1; padding: 8px;">
-                🔄 Сбросить к стандартным
-              </button>
-              <button onclick="closePromptManager()" 
-                      style="flex: 1; padding: 8px;">
-                Закрыть
-              </button>
-            </div>
-          </div>
-        `;
+                </div>
+                <div style="display: flex; gap: 10px;">
+                  <button onclick="resetToDefaultTemplates()"
+                          style="flex: 1; padding: 8px;">
+                    🔄 Сбросить к стандартным
+                  </button>
+                  <button onclick="closePromptManager()"
+                          style="flex: 1; padding: 8px;">
+                    Закрыть
+                  </button>
+                </div>
+              </div>
+            `;
 
         // Показать модальное окно
         const modal = document.createElement("div");
@@ -935,6 +960,7 @@
 
       // Проверить подключение к API
       async function testConnection() {
+        const startTime = Date.now();
         const apiUrl = apiUrlInput.value.trim();
         const apiKey = apiKeyInput.value.trim();
         const model = modelInput.value.trim();
@@ -983,9 +1009,17 @@
             }),
           });
 
+          const endTime = Date.now();
+          const duration = endTime - startTime;
+
           if (response.ok) {
+            const data = await response.json();
+            const tokensUsed = data.usage?.total_tokens || 0;
+
             updateStatus("connected", "Подключено");
-            showSystemMessage(`Успешное подключение к модели "${model}"`);
+            showSystemMessage(
+              `Успешное подключение к модели "${model}" | Время: ${duration}мс | Токены: ${tokensUsed}`
+            );
             isConnected = true;
 
             // Сохранить настройки
@@ -994,7 +1028,7 @@
             const errorData = await response.json();
             updateStatus("disconnected", "Ошибка подключения");
             showError(
-              `Ошибка API: ${errorData.error?.message || response.statusText}`
+              `Ошибка API: ${errorData.error?.message || response.statusText} | Время: ${duration}мс`
             );
           }
         } catch (error) {
@@ -1015,6 +1049,9 @@
           showError("Сначала проверьте подключение к API");
           return;
         }
+
+        // Запомнить время начала запроса
+        requestStartTime = Date.now();
 
         // Добавить сообщение пользователя в чат
         addMessageToChat("user", message);
@@ -1065,6 +1102,9 @@
             }),
           });
 
+          const endTime = Date.now();
+          const duration = endTime - (requestStartTime || endTime);
+
           if (response.ok) {
             const data = await response.json();
 
@@ -1078,6 +1118,30 @@
               assistantMessage = "Получен неожиданный формат ответа от API";
             }
 
+            // Получить информацию об использовании токенов
+            const tokensUsed = data.usage?.total_tokens || 0;
+            const promptTokens = data.usage?.prompt_tokens || 0;
+            const completionTokens = data.usage?.completion_tokens || 0;
+
+            // Обновить общую статистику
+            totalTokensUsed += tokensUsed;
+            totalRequests++;
+
+            // Добавить статистику в сообщение
+            const statsHtml = `
+            <div class="message-stats" style="
+              font-size: 0.8rem;
+              color: #a0aec0;
+              margin-top: 10px;
+              padding-top: 10px;
+              border-top: 1px solid rgba(255,255,255,0.1);
+            ">
+              ⏱️ Время выполнения: <strong>${duration}мс</strong> |
+              🪙 Токены: <strong>${tokensUsed}</strong>
+              (ввод: ${promptTokens}, вывод: ${completionTokens})
+            </div>
+          `;
+
             // Добавить ответ ассистента в историю
             conversationHistory.push({
               role: "assistant",
@@ -1085,27 +1149,66 @@
             });
 
             // Обновить сообщение ассистента в чате
-            updateMessageInChat(assistantMessageId, assistantMessage);
+            updateMessageInChat(
+              assistantMessageId,
+              assistantMessage + statsHtml
+            );
+
+            // Обновить статус подключения с новой информацией
+            updateStatus(
+              "connected",
+              `Подключено | Запросов: ${totalRequests} | Токенов всего: ${totalTokensUsed}`
+            );
 
             // Сохранить историю чата
             saveChatHistory();
           } else {
             const errorData = await response.json();
+            const errorStats = `
+            <div class="message-stats" style="
+              font-size: 0.8rem;
+              color: #f56565;
+              margin-top: 10px;
+              padding-top: 10px;
+              border-top: 1px solid rgba(245,101,101,0.3);
+            ">
+              ⏱️ Время до ошибки: <strong>${duration}мс</strong>
+            </div>
+          `;
+
             updateMessageInChat(
               assistantMessageId,
-              `Ошибка API: ${errorData.error?.message || response.statusText}`
+              `Ошибка API: ${errorData.error?.message || response.statusText}` +
+                errorStats
             );
           }
         } catch (error) {
+          const endTime = Date.now();
+          const duration = endTime - (requestStartTime || endTime);
+          const errorStats = `
+          <div class="message-stats" style="
+            font-size: 0.8rem;
+            color: #f56565;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(245,101,101,0.3);
+          ">
+            ⏱️ Время до ошибки: <strong>${duration}мс</strong>
+          </div>
+        `;
+
           updateMessageInChat(
             assistantMessageId,
-            `Сетевая ошибка: ${error.message}`
+            `Сетевая ошибка: ${error.message}` + errorStats
           );
         } finally {
           // Включить кнопку отправки и поле ввода
           sendButton.disabled = false;
           messageInput.disabled = false;
           messageInput.focus();
+
+          // Сбросить время начала запроса
+          requestStartTime = null;
         }
       }
 
@@ -1122,6 +1225,11 @@
 
           // Очистить историю разговора
           conversationHistory = [];
+          totalTokensUsed = 0;
+          totalRequests = 0;
+
+          // Обновить статус
+          updateStatus("disconnected", "Не подключено");
 
           // Очистить localStorage
           localStorage.removeItem("llmChatHistory");
@@ -1151,12 +1259,12 @@
         const timeString = formatTime(now);
 
         messageElement.innerHTML = `
-                <div class="message-header">
-                    <span>${role === "user" ? "Вы" : "Ассистент"}</span>
-                    <span class="message-time">${timeString}</span>
-                </div>
-                ${content}
-            `;
+                    <div class="message-header">
+                        <span>${role === "user" ? "Вы" : "Ассистент"}</span>
+                        <span class="message-time">${timeString}</span>
+                    </div>
+                    ${content}
+                `;
 
         messagesContainer.appendChild(messageElement);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -1173,7 +1281,7 @@
             messageElement.lastChild;
 
           if (messageElement.lastChild.nodeType === Node.TEXT_NODE) {
-            messageElement.lastChild.textContent = newContent;
+            messageElement.insertAdjacentHTML("beforeend", newContent);
           } else {
             // Если это последний дочерний элемент (после заголовка)
             const children = messageElement.children;
@@ -1184,6 +1292,7 @@
 
           // Убрать временный ID
           messageElement.removeAttribute("id");
+          messageElement.querySelector(".loading").remove();
         }
       }
 
@@ -1201,7 +1310,7 @@
 
       // Показать системное сообщение
       function showSystemMessage(message) {
-        systemMessageText.textContent = message;
+        systemMessageText.innerHTML = message;
         systemMessage.classList.remove("hidden");
         errorMessage.classList.add("hidden");
 
@@ -1296,8 +1405,19 @@
               }
             });
 
+            // Подсчитать приблизительную статистику по истории
+            totalRequests = history.filter(
+              (msg) => msg.role === "assistant"
+            ).length;
+            // Примерная оценка токенов: ~1.3 токена на символ для русского текста
+            totalTokensUsed = Math.round(
+              history.reduce((acc, msg) => acc + msg.content.length * 1.3, 0)
+            );
+
             if (history.length > 0) {
-              showSystemMessage("История чата загружена");
+              showSystemMessage(
+                `История чата загружена | ${totalRequests} запросов | ~${totalTokensUsed} токенов всего`
+              );
             }
           } catch (e) {
             console.error("Ошибка загрузки истории:", e);
@@ -1312,6 +1432,55 @@
           minute: "2-digit",
           hour12: false,
         });
+      }
+
+      function showStatistics() {
+        const avgTokensPerRequest =
+          totalRequests > 0 ? Math.round(totalTokensUsed / totalRequests) : 0;
+
+        const statsHtml = `
+        <div style="padding: 15px; background: rgba(45, 55, 72, 0.9); border-radius: 8px; margin-top: 10px;">
+          <h3 style="margin-bottom: 10px;">Статистика использования</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+              <div style="font-size: 0.9rem; color: #a0aec0;">Всего запросов:</div>
+              <div style="font-size: 1.2rem; font-weight: bold;">${totalRequests}</div>
+            </div>
+            <div>
+              <div style="font-size: 0.9rem; color: #a0aec0;">Всего токенов:</div>
+              <div style="font-size: 1.2rem; font-weight: bold;">${totalTokensUsed}</div>
+            </div>
+            <div>
+              <div style="font-size: 0.9rem; color: #a0aec0;">Среднее на запрос:</div>
+              <div style="font-size: 1.2rem; font-weight: bold;">${avgTokensPerRequest}</div>
+            </div>
+            <div>
+              <div style="font-size: 0.9rem; color: #a0aec0;">В истории чата:</div>
+              <div style="font-size: 1.2rem; font-weight: bold;">${conversationHistory.length / 2}</div>
+            </div>
+          </div>
+          <button onclick="resetStatistics()" style="
+            width: 100%;
+            margin-top: 15px;
+            padding: 10px;
+            background: #f56565;
+          ">
+            Сбросить статистику
+          </button>
+        </div>
+      `;
+
+        showSystemMessage(statsHtml);
+      }
+
+      // Добавьте функцию resetStatistics():
+      function resetStatistics() {
+        if (confirm("Сбросить всю статистику использования?")) {
+          totalTokensUsed = 0;
+          totalRequests = 0;
+          updateStatus("disconnected", "Не подключено");
+          showSystemMessage("Статистика сброшена");
+        }
       }
 
       // Инициализировать приложение
